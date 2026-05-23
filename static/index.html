@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LoginShield — Admin Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:        #050a0f;
+      --surface:   #0b1420;
+      --surface2:  #111d2e;
+      --border:    #1a2e45;
+      --accent:    #00d4ff;
+      --accent2:   #ff6b35;
+      --accent3:   #7fff6b;
+      --danger:    #ff3b5c;
+      --warn:      #ffa040;
+      --ok:        #3bff8a;
+      --text:      #c8dff0;
+      --text-dim:  #5a7a99;
+      --font-head: 'Syne', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── GRID LAYOUT ── */
+    .layout {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      grid-template-rows: 56px 1fr;
+      min-height: 100vh;
+    }
+
+    /* ── TOPBAR ── */
+    .topbar {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 100;
+    }
+    .topbar-brand {
+      display: flex; align-items: center; gap: 10px;
+      font-family: var(--font-head);
+      font-size: 18px; font-weight: 800;
+      letter-spacing: -0.5px;
+      color: #fff;
+    }
+    .topbar-brand span { color: var(--accent); }
+    .topbar-right { display: flex; align-items: center; gap: 16px; }
+    .splunk-badge {
+      display: flex; align-items: center; gap: 6px;
+      padding: 4px 12px;
+      border-radius: 4px;
+      font-size: 11px; font-weight: 600;
+      border: 1px solid var(--border);
+      cursor: default;
+      transition: all .2s;
+    }
+    .splunk-badge.ok    { border-color: var(--ok);     color: var(--ok); }
+    .splunk-badge.fail  { border-color: var(--danger);  color: var(--danger); }
+    .splunk-badge.nc    { border-color: var(--text-dim); color: var(--text-dim); }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+    .dot.pulse { animation: pulse 1.5s infinite; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; } 50% { opacity: .3; }
+    }
+    .refresh-btn {
+      padding: 5px 14px;
+      background: transparent; border: 1px solid var(--accent);
+      color: var(--accent); border-radius: 4px;
+      font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+      cursor: pointer; transition: all .15s;
+    }
+    .refresh-btn:hover { background: var(--accent); color: var(--bg); }
+    .refresh-btn.spinning { animation: spin .6s linear infinite; pointer-events: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 20px 0;
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .nav-section {
+      padding: 6px 16px 3px;
+      font-size: 10px; font-weight: 700;
+      color: var(--text-dim); letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-top: 12px;
+    }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 20px;
+      color: var(--text-dim);
+      cursor: pointer;
+      border-left: 3px solid transparent;
+      transition: all .15s;
+      font-size: 12px;
+    }
+    .nav-item:hover  { color: var(--text); background: var(--surface2); }
+    .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(0,212,255,.06); }
+    .nav-icon { font-size: 15px; width: 18px; text-align: center; }
+
+    /* ── MAIN CONTENT ── */
+    .main {
+      padding: 24px;
+      overflow-y: auto;
+      display: flex; flex-direction: column; gap: 24px;
+    }
+
+    /* ── PANELS (tabs) ── */
+    .panel { display: none; flex-direction: column; gap: 20px; }
+    .panel.active { display: flex; }
+
+    /* ── STAT CARDS ── */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 18px 20px;
+      position: relative; overflow: hidden;
+      animation: fadeUp .4s ease both;
+    }
+    .stat-card::before {
+      content: ''; position: absolute;
+      inset: 0; opacity: .03;
+      background: linear-gradient(135deg, var(--accent), transparent);
+    }
+    .stat-label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
+    .stat-value { font-family: var(--font-head); font-size: 36px; font-weight: 800; margin: 6px 0 4px; }
+    .stat-sub { font-size: 11px; color: var(--text-dim); }
+    .stat-card.danger .stat-value { color: var(--danger); }
+    .stat-card.warn   .stat-value { color: var(--warn); }
+    .stat-card.ok     .stat-value { color: var(--ok); }
+    .stat-card.accent .stat-value { color: var(--accent); }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    /* ── CARD WRAPPER ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .card-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+    }
+    .card-title {
+      font-family: var(--font-head);
+      font-size: 14px; font-weight: 700;
+      color: #fff; letter-spacing: -.2px;
+    }
+    .card-badge {
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-size: 11px; font-weight: 600;
+      background: rgba(0,212,255,.1); color: var(--accent);
+    }
+
+    /* ── TABLE ── */
+    .tbl-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th {
+      padding: 10px 14px;
+      text-align: left; font-size: 10px;
+      font-weight: 700; letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    td {
+      padding: 10px 14px;
+      font-size: 12px;
+      border-bottom: 1px solid rgba(26,46,69,.5);
+      vertical-align: middle;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(0,212,255,.03); }
+
+    /* ── SEVERITY BADGES ── */
+    .badge {
+      display: inline-block; padding: 2px 9px;
+      border-radius: 3px; font-size: 10px; font-weight: 700;
+      letter-spacing: .5px; text-transform: uppercase;
+    }
+    .badge-critical { background: rgba(255,59,92,.15);  color: var(--danger); }
+    .badge-high     { background: rgba(255,160,64,.15); color: var(--warn); }
+    .badge-medium   { background: rgba(255,215,0,.1);   color: #ffd700; }
+    .badge-low      { background: rgba(0,212,255,.1);   color: var(--accent); }
+    .badge-info     { background: rgba(127,255,107,.1); color: var(--ok); }
+
+    /* risk bar */
+    .risk-bar { display: flex; align-items: center; gap: 8px; }
+    .risk-track {
+      flex: 1; height: 5px; background: var(--border); border-radius: 3px; overflow: hidden;
+    }
+    .risk-fill { height: 100%; border-radius: 3px; transition: width .4s; }
+
+    /* ── ALERT STREAM ── */
+    .alert-stream { max-height: 460px; overflow-y: auto; }
+    .alert-row {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(26,46,69,.4);
+      animation: fadeIn .3s ease both;
+    }
+    @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+    .alert-row:last-child { border-bottom: none; }
+    .alert-time {
+      flex-shrink: 0; font-size: 11px; color: var(--text-dim);
+      width: 80px; padding-top: 1px;
+    }
+    .alert-content { flex: 1; }
+    .alert-type {
+      font-weight: 600; font-size: 12px; color: var(--text);
+      text-transform: replace;
+    }
+    .alert-detail { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+    .alert-user { font-size: 11px; color: var(--accent); margin-top: 1px; }
+
+    /* ── CHART ── */
+    .chart-wrap { padding: 16px 18px; }
+    svg.bar-chart text { font-family: var(--font-mono); }
+
+    /* ── FILTERS ── */
+    .filters {
+      display: flex; gap: 10px; align-items: center;
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .filters input, .filters select {
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text); font-family: var(--font-mono);
+      font-size: 12px; padding: 6px 10px; border-radius: 4px;
+      outline: none;
+    }
+    .filters input:focus, .filters select:focus { border-color: var(--accent); }
+    .filter-label { font-size: 11px; color: var(--text-dim); }
+
+    /* ── ACTION BUTTONS ── */
+    .act-btn {
+      padding: 3px 10px; border-radius: 3px; font-size: 11px; font-weight: 600;
+      font-family: var(--font-mono); cursor: pointer; border: 1px solid;
+      transition: all .12s;
+    }
+    .act-unlock { border-color: var(--ok);  color: var(--ok); background: transparent; }
+    .act-unlock:hover { background: var(--ok); color: var(--bg); }
+    .act-reset  { border-color: var(--accent); color: var(--accent); background: transparent; }
+    .act-reset:hover  { background: var(--accent); color: var(--bg); }
+
+    /* ── SPLUNK CONFIG PANEL ── */
+    .config-form { padding: 20px 18px; display: flex; flex-direction: column; gap: 14px; }
+    .cfg-row { display: grid; grid-template-columns: 160px 1fr; align-items: center; gap: 12px; }
+    .cfg-label { font-size: 12px; color: var(--text-dim); }
+    .cfg-input {
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text); font-family: var(--font-mono);
+      font-size: 12px; padding: 8px 12px; border-radius: 4px; outline: none;
+    }
+    .cfg-input:focus { border-color: var(--accent); }
+    .cfg-save {
+      align-self: flex-start; padding: 8px 20px;
+      background: var(--accent); color: var(--bg);
+      border: none; border-radius: 4px; font-family: var(--font-mono);
+      font-size: 12px; font-weight: 700; cursor: pointer; transition: opacity .15s;
+    }
+    .cfg-save:hover { opacity: .85; }
+    .splunk-queries { padding: 0 18px 18px; }
+    .query-block {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 6px; margin-bottom: 10px;
+      overflow: hidden;
+    }
+    .query-label {
+      padding: 8px 14px;
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 1px; color: var(--accent);
+      border-bottom: 1px solid var(--border);
+    }
+    .query-code {
+      padding: 10px 14px; font-family: var(--font-mono);
+      font-size: 12px; color: var(--text);
+      white-space: pre-wrap; word-break: break-all;
+      cursor: pointer; transition: background .1s;
+    }
+    .query-code:hover { background: rgba(0,212,255,.05); }
+    .copy-hint { font-size: 10px; color: var(--text-dim); padding: 0 14px 8px; }
+
+    /* ── EMPTY STATE ── */
+    .empty { padding: 40px; text-align: center; color: var(--text-dim); }
+
+    /* ── TOAST ── */
+    #toast {
+      position: fixed; bottom: 20px; right: 20px;
+      padding: 10px 18px; border-radius: 6px;
+      background: var(--surface2); border: 1px solid var(--border);
+      font-size: 12px; color: var(--text);
+      transform: translateY(60px); opacity: 0;
+      transition: all .2s; pointer-events: none; z-index: 999;
+    }
+    #toast.show { transform: none; opacity: 1; }
+
+    /* ── SCROLLBAR ── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ── SIMULATE PANEL ── */
+    .sim-form { padding: 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .sim-label { font-size: 11px; color: var(--text-dim); margin-bottom: 4px; }
+    .sim-input, .sim-select {
+      width: 100%; background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text); font-family: var(--font-mono);
+      font-size: 12px; padding: 8px 10px; border-radius: 4px; outline: none;
+    }
+    .sim-input:focus, .sim-select:focus { border-color: var(--accent); }
+    .sim-full { grid-column: 1 / -1; }
+    .sim-btns { display: flex; gap: 8px; }
+    .sim-btn {
+      flex: 1; padding: 9px; border: none; border-radius: 4px;
+      font-family: var(--font-mono); font-size: 12px; font-weight: 700; cursor: pointer;
+      transition: opacity .15s;
+    }
+    .sim-btn:hover { opacity: .85; }
+    .sim-success { background: var(--ok); color: var(--bg); }
+    .sim-fail    { background: var(--danger); color: #fff; }
+    .sim-response {
+      grid-column: 1 / -1; background: var(--surface2);
+      border: 1px solid var(--border); border-radius: 4px;
+      padding: 12px; font-size: 11px; min-height: 60px;
+      white-space: pre-wrap; overflow-y: auto; max-height: 200px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div class="topbar-brand">🛡 Login<span>Shield</span></div>
+    <div class="topbar-right">
+      <div id="splunk-status-badge" class="splunk-badge nc">
+        <div class="dot"></div>
+        <span>Splunk: Checking…</span>
+      </div>
+      <button class="refresh-btn" id="refresh-btn" onclick="loadAll()">⟳ Refresh</button>
+    </div>
+  </header>
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar">
+    <div class="nav-section">Monitor</div>
+    <div class="nav-item active" data-panel="overview">
+      <span class="nav-icon">📊</span> Overview
+    </div>
+    <div class="nav-item" data-panel="alerts">
+      <span class="nav-icon">🚨</span> Live Alerts
+    </div>
+    <div class="nav-item" data-panel="users">
+      <span class="nav-icon">👥</span> Users
+    </div>
+    <div class="nav-section">Tools</div>
+    <div class="nav-item" data-panel="simulate">
+      <span class="nav-icon">⚡</span> Simulate
+    </div>
+    <div class="nav-item" data-panel="splunk">
+      <span class="nav-icon">🔗</span> Splunk Config
+    </div>
+  </nav>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- ══ OVERVIEW ══ -->
+    <section class="panel active" id="panel-overview">
+      <div class="stat-grid" id="stat-grid">
+        <div class="stat-card accent">
+          <div class="stat-label">Total Users</div>
+          <div class="stat-value" id="s-users">–</div>
+          <div class="stat-sub">monitored accounts</div>
+        </div>
+        <div class="stat-card danger">
+          <div class="stat-label">Total Alerts</div>
+          <div class="stat-value" id="s-alerts">–</div>
+          <div class="stat-sub">all-time detections</div>
+        </div>
+        <div class="stat-card warn">
+          <div class="stat-label">High Risk</div>
+          <div class="stat-value" id="s-highrisk">–</div>
+          <div class="stat-sub">score ≥ 5</div>
+        </div>
+        <div class="stat-card danger">
+          <div class="stat-label">Locked Accounts</div>
+          <div class="stat-value" id="s-locked">–</div>
+          <div class="stat-sub">auto-blocked</div>
+        </div>
+      </div>
+
+      <!-- Alert breakdown chart -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Alert Type Breakdown</div>
+          <div class="card-badge" id="breakdown-total">0 types</div>
+        </div>
+        <div class="chart-wrap" id="chart-wrap">
+          <div class="empty">Loading…</div>
+        </div>
+      </div>
+
+      <!-- Recent activity -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Recent Activity</div>
+          <div class="card-badge" id="recent-count">–</div>
+        </div>
+        <div class="alert-stream" id="recent-alerts">
+          <div class="empty">Loading…</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ LIVE ALERTS ══ -->
+    <section class="panel" id="panel-alerts">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">All Alerts</div>
+          <div class="card-badge" id="all-alert-count">–</div>
+        </div>
+        <div class="filters">
+          <span class="filter-label">Filter:</span>
+          <input type="text" id="filter-user" placeholder="Username…" oninput="renderAlertTable()" />
+          <select id="filter-sev" onchange="renderAlertTable()">
+            <option value="">All Severities</option>
+            <option value="critical">Critical</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </select>
+          <select id="filter-type" onchange="renderAlertTable()">
+            <option value="">All Types</option>
+          </select>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>User</th>
+                <th>Type</th>
+                <th>Severity</th>
+                <th>IP</th>
+                <th>Details</th>
+              </tr>
+            </thead>
+            <tbody id="alert-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ USERS ══ -->
+    <section class="panel" id="panel-users">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">User Risk Register</div>
+          <div class="card-badge" id="user-count">–</div>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Username</th>
+                <th>Risk Score</th>
+                <th>Failed</th>
+                <th>Total Logins</th>
+                <th>Alerts</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="user-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ SIMULATE ══ -->
+    <section class="panel" id="panel-simulate">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Login Event Simulator</div>
+        </div>
+        <div class="sim-form">
+          <div>
+            <div class="sim-label">Username</div>
+            <input class="sim-input" id="sim-user" value="testuser" />
+          </div>
+          <div>
+            <div class="sim-label">Password</div>
+            <input class="sim-input" id="sim-pass" value="Test@1234" />
+          </div>
+          <div>
+            <div class="sim-label">IP Address</div>
+            <input class="sim-input" id="sim-ip" value="192.168.1.100" />
+          </div>
+          <div>
+            <div class="sim-label">User-Agent</div>
+            <input class="sim-input" id="sim-ua" value="Mozilla/5.0 (Windows NT 10.0; Win64; x64)" />
+          </div>
+          <div>
+            <div class="sim-label">Country Code</div>
+            <input class="sim-input" id="sim-country" value="IN" />
+          </div>
+          <div>
+            <div class="sim-label">Hour Override (0–23, blank=now)</div>
+            <input class="sim-input" id="sim-hour" placeholder="e.g. 3 (for 3 AM)" />
+          </div>
+          <div class="sim-full">
+            <div class="sim-btns">
+              <button class="sim-btn sim-success" onclick="simulate(true)">✓ Successful Login</button>
+              <button class="sim-btn sim-fail"    onclick="simulate(false)">✗ Failed Login</button>
+            </div>
+          </div>
+          <div class="sim-full">
+            <div class="sim-label">API Response</div>
+            <div class="sim-response" id="sim-response">Click a button to send a login event…</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ SPLUNK CONFIG ══ -->
+    <section class="panel" id="panel-splunk">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Splunk HEC Configuration</div>
+        </div>
+        <div class="config-form">
+          <div class="cfg-row">
+            <div class="cfg-label">HEC URL</div>
+            <input class="cfg-input" id="cfg-url" placeholder="https://your-instance.splunkcloud.com:8088/services/collector/event" />
+          </div>
+          <div class="cfg-row">
+            <div class="cfg-label">HEC Token</div>
+            <input class="cfg-input" id="cfg-token" type="password" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+          </div>
+          <button class="cfg-save" onclick="testSplunk()">Test &amp; Save</button>
+        </div>
+        <div style="padding: 0 18px; margin-bottom: 6px;">
+          <div style="font-size: 12px; color: var(--text-dim);">
+            ⓘ Update <code style="color:var(--accent)">.env</code> with these values, then restart the server.
+            The test button pings <code style="color:var(--accent)">/admin/splunk-status</code>.
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Splunk Dashboard Queries</div>
+          <div class="card-badge">Copy &amp; paste into Splunk Search</div>
+        </div>
+        <div class="splunk-queries">
+          <p style="font-size:11px;color:var(--text-dim);padding:10px 0 14px">
+            These SPL queries work with sourcetype <code style="color:var(--accent)">login_shield:alert</code>.
+            Click a query to copy it.
+          </p>
+
+          <div class="query-block">
+            <div class="query-label">📊 Alert Volume Over Time</div>
+            <div class="query-code" onclick="copyQuery(this)">sourcetype="login_shield:alert"
+| timechart count by alert_type span=1h</div>
+            <div class="copy-hint">Click to copy</div>
+          </div>
+
+          <div class="query-block">
+            <div class="query-label">🚨 Critical Alerts (last 24h)</div>
+            <div class="query-code" onclick="copyQuery(this)">sourcetype="login_shield:alert" severity="critical"
+| table _time, username, alert_type, details, ip_address
+| sort -_time</div>
+            <div class="copy-hint">Click to copy</div>
+          </div>
+
+          <div class="query-block">
+            <div class="query-label">💪 Brute Force Attacks</div>
+            <div class="query-code" onclick="copyQuery(this)">sourcetype="login_shield:alert" alert_type="brute_force"
+| stats count AS attempts, max(failed_count) AS max_fails BY username, ip_address
+| sort -attempts</div>
+            <div class="copy-hint">Click to copy</div>
+          </div>
+
+          <div class="query-block">
+            <div class="query-label">🕐 Unusual Login Hours</div>
+            <div class="query-code" onclick="copyQuery(this)">sourcetype="login_shield:alert" alert_type="unusual_timing"
+| stats count BY username, login_hour
+| sort -count</div>
+            <div class="copy-hint">Click to copy</div>
+          </div>
+
+          <div class="query-block">
+            <div class="query-label">🌍 Impossible Travel Events</div>
+            <div class="query-code" onclick="copyQuery(this)">sourcetype="login_shield:alert" alert_type="impossible_travel"
+| table _time, username, from_country, to_country, time_diff_minutes, ip_address
+| sort -_time</div>
+            <div class="copy-hint">Click to copy</div>
+          </div>
+
+          <div class="query-block">
+            <div class="query-label">🖥 New Device / IP Detections</div>
+            <div class="query-code" onclick="copyQuery(this)">sourcetype="login_shield:alert" (alert_type="new_ip" OR alert_type="new_device")
+| stats count BY username, alert_type, ip_address
+| sort -count</div>
+            <div class="copy-hint">Click to copy</div>
+          </div>
+
+          <div class="query-block">
+            <div class="query-label">👤 Top Suspicious Users</div>
+            <div class="query-code" onclick="copyQuery(this)">sourcetype="login_shield:alert"
+| stats count AS total_alerts,
+        dc(alert_type) AS unique_alert_types,
+        values(severity) AS severities
+  BY username
+| sort -total_alerts
+| head 20</div>
+            <div class="copy-hint">Click to copy</div>
+          </div>
+
+          <div class="query-block">
+            <div class="query-label">🔒 Locked Account Events</div>
+            <div class="query-code" onclick="copyQuery(this)">sourcetype="login_shield:alert" alert_type="account_locked"
+| stats count, latest(_time) AS last_attempt BY username
+| sort -last_attempt</div>
+            <div class="copy-hint">Click to copy</div>
+          </div>
+
+          <div class="query-block">
+            <div class="query-label">📈 Alert Severity Distribution</div>
+            <div class="query-code" onclick="copyQuery(this)">sourcetype="login_shield:alert"
+| stats count BY severity
+| eval pct=round(count/totals*100,1)</div>
+            <div class="copy-hint">Click to copy</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────────────────────────────
+const API = '';  // relative — same origin
+let allAlerts = [];
+let allUsers  = [];
+
+// ─── NAV ─────────────────────────────────────────────────────────────────────
+document.querySelectorAll('.nav-item').forEach(el => {
+  el.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('panel-' + el.dataset.panel).classList.add('active');
+  });
+});
+
+// ─── LOAD ALL ────────────────────────────────────────────────────────────────
+async function loadAll() {
+  const btn = document.getElementById('refresh-btn');
+  btn.classList.add('spinning');
+  try {
+    const [dash, splunk] = await Promise.allSettled([
+      fetch(API + '/admin/dashboard-data').then(r => r.json()),
+      fetch(API + '/admin/splunk-status').then(r => r.json()),
+    ]);
+
+    if (dash.status === 'fulfilled') renderDashboard(dash.value);
+    if (splunk.status === 'fulfilled') renderSplunkBadge(splunk.value);
+  } catch(e) {
+    toast('❌ Could not reach API: ' + e.message);
+  } finally {
+    btn.classList.remove('spinning');
+  }
+}
+
+// ─── RENDER DASHBOARD ────────────────────────────────────────────────────────
+function renderDashboard(data) {
+  const s = data.summary;
+  document.getElementById('s-users').textContent    = s.total_users;
+  document.getElementById('s-alerts').textContent   = s.total_alerts;
+  document.getElementById('s-highrisk').textContent = s.high_risk_users;
+  document.getElementById('s-locked').textContent   = s.locked_accounts;
+
+  allAlerts = data.recent_alerts || [];
+  allUsers  = data.all_users || [];
+
+  renderBarChart(data.alert_breakdown || []);
+  renderRecentAlerts(allAlerts.slice(0, 20));
+  renderAlertTable();
+  renderUserTable();
+
+  document.getElementById('recent-count').textContent = allAlerts.length + ' events';
+  document.getElementById('all-alert-count').textContent = allAlerts.length + ' alerts';
+  document.getElementById('user-count').textContent = allUsers.length + ' users';
+
+  // Populate type filter
+  const sel = document.getElementById('filter-type');
+  const types = [...new Set(allAlerts.map(a => a.type))].sort();
+  sel.innerHTML = '<option value="">All Types</option>' + types.map(t =>
+    `<option value="${t}">${fmt_type(t)}</option>`).join('');
+
+  document.getElementById('breakdown-total').textContent = (data.alert_breakdown || []).length + ' types';
+}
+
+// ─── BAR CHART ───────────────────────────────────────────────────────────────
+function renderBarChart(breakdown) {
+  const wrap = document.getElementById('chart-wrap');
+  if (!breakdown.length) { wrap.innerHTML = '<div class="empty">No alert data yet</div>'; return; }
+
+  const W = wrap.clientWidth || 600, H = 180;
+  const pad = { top: 16, right: 16, bottom: 40, left: 8 };
+  const n = breakdown.length;
+  const maxVal = Math.max(...breakdown.map(d => d.count));
+  const barW = Math.min(40, (W - pad.left - pad.right) / n - 6);
+  const chartW = W - pad.left - pad.right;
+  const chartH = H - pad.top - pad.bottom;
+
+  const colors = ['#00d4ff','#ff6b35','#7fff6b','#ff3b5c','#ffa040','#a78bfa','#38bdf8','#fb7185'];
+
+  let bars = '';
+  breakdown.forEach((d, i) => {
+    const x = pad.left + (i + 0.5) * (chartW / n) - barW / 2;
+    const h = (d.count / maxVal) * chartH;
+    const y = pad.top + chartH - h;
+    const col = colors[i % colors.length];
+    bars += `
+      <rect x="${x}" y="${y}" width="${barW}" height="${h}" fill="${col}" rx="3" opacity=".85"/>
+      <text x="${x + barW/2}" y="${y - 5}" text-anchor="middle" fill="${col}" font-size="10">${d.count}</text>
+      <text x="${x + barW/2}" y="${H - 8}" text-anchor="middle" fill="#5a7a99" font-size="9"
+            transform="rotate(-30, ${x + barW/2}, ${H - 8})">${d.type.replace(/_/g,' ')}</text>
+    `;
+  });
+
+  wrap.innerHTML = `<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}">${bars}</svg>`;
+}
+
+// ─── RECENT ALERTS STREAM ────────────────────────────────────────────────────
+function renderRecentAlerts(alerts) {
+  const el = document.getElementById('recent-alerts');
+  if (!alerts.length) { el.innerHTML = '<div class="empty">No alerts yet</div>'; return; }
+  el.innerHTML = alerts.map(a => `
+    <div class="alert-row">
+      <div class="alert-time">${fmtTime(a.timestamp)}</div>
+      <div class="alert-content">
+        <div class="alert-type">${fmt_type(a.type)} <span class="badge badge-${a.severity||'medium'}">${a.severity||'medium'}</span></div>
+        <div class="alert-user">@${a.username || '–'}</div>
+        <div class="alert-detail">${a.details || ''}</div>
+      </div>
+    </div>`).join('');
+}
+
+// ─── ALERT TABLE ─────────────────────────────────────────────────────────────
+function renderAlertTable() {
+  const userQ = (document.getElementById('filter-user').value||'').toLowerCase();
+  const sevQ  = document.getElementById('filter-sev').value;
+  const typeQ = document.getElementById('filter-type').value;
+
+  let rows = allAlerts.filter(a =>
+    (!userQ || (a.username||'').toLowerCase().includes(userQ)) &&
+    (!sevQ  || a.severity === sevQ) &&
+    (!typeQ || a.type === typeQ)
+  );
+
+  const tbody = document.getElementById('alert-tbody');
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-dim);padding:30px">No alerts match filters</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(a => `
+    <tr>
+      <td style="white-space:nowrap">${fmtTime(a.timestamp)}</td>
+      <td><span style="color:var(--accent)">${a.username||'–'}</span></td>
+      <td>${fmt_type(a.type)}</td>
+      <td><span class="badge badge-${a.severity||'medium'}">${a.severity||'medium'}</span></td>
+      <td style="color:var(--text-dim);font-size:11px">${a.ip_address||'–'}</td>
+      <td style="color:var(--text-dim);max-width:300px;overflow:hidden;text-overflow:ellipsis">${a.details||''}</td>
+    </tr>`).join('');
+}
+
+// ─── USER TABLE ──────────────────────────────────────────────────────────────
+function renderUserTable() {
+  const tbody = document.getElementById('user-tbody');
+  if (!allUsers.length) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--text-dim);padding:30px">No users tracked yet</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = allUsers.map(u => {
+    const riskPct = Math.min(100, (u.risk_score / 10) * 100);
+    const riskCol = u.risk_score >= 7 ? 'var(--danger)' : u.risk_score >= 4 ? 'var(--warn)' : 'var(--ok)';
+    const statusBadge = u.is_locked
+      ? '<span class="badge badge-critical">LOCKED</span>'
+      : u.risk_score >= 7
+        ? '<span class="badge badge-high">HIGH RISK</span>'
+        : '<span class="badge badge-info">ACTIVE</span>';
+    return `
+    <tr>
+      <td><span style="color:var(--accent)">${u.username}</span></td>
+      <td>
+        <div class="risk-bar">
+          <div class="risk-track">
+            <div class="risk-fill" style="width:${riskPct}%;background:${riskCol}"></div>
+          </div>
+          <span style="color:${riskCol};font-weight:700;min-width:20px">${u.risk_score}</span>
+        </div>
+      </td>
+      <td>${u.failed_attempts}</td>
+      <td>${u.total_logins}</td>
+      <td>${u.alert_count}</td>
+      <td>${statusBadge}</td>
+      <td style="white-space:nowrap">
+        <button class="act-btn act-reset"  onclick="adminAction('reset_risk',  '${u.username}')">Reset Risk</button>
+        ${u.is_locked ? `<button class="act-btn act-unlock" onclick="adminAction('unlock_account', '${u.username}')">Unlock</button>` : ''}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ─── ADMIN ACTIONS ───────────────────────────────────────────────────────────
+async function adminAction(action, username) {
+  try {
+    const r = await fetch(`${API}/admin/${action}/${username}`, { method: 'POST' });
+    const d = await r.json();
+    toast(`✓ ${d.message || action + ' done'}`);
+    await loadAll();
+  } catch(e) {
+    toast('❌ ' + e.message);
+  }
+}
+
+// ─── SPLUNK BADGE ────────────────────────────────────────────────────────────
+function renderSplunkBadge(status) {
+  const el = document.getElementById('splunk-status-badge');
+  if (status.connected) {
+    el.className = 'splunk-badge ok';
+    el.innerHTML = '<div class="dot pulse"></div><span>Splunk: Connected</span>';
+  } else if (status.configured) {
+    el.className = 'splunk-badge fail';
+    el.innerHTML = '<div class="dot"></div><span>Splunk: Unreachable</span>';
+  } else {
+    el.className = 'splunk-badge nc';
+    el.innerHTML = '<div class="dot"></div><span>Splunk: Not Configured</span>';
+  }
+}
+
+async function testSplunk() {
+  try {
+    const r = await fetch(`${API}/admin/splunk-status`);
+    const d = await r.json();
+    renderSplunkBadge(d);
+    toast(d.connected ? '✓ Splunk HEC reachable!' : '⚠ ' + (d.error || d.status));
+  } catch(e) {
+    toast('❌ ' + e.message);
+  }
+}
+
+// ─── SIMULATE ────────────────────────────────────────────────────────────────
+async function simulate(success) {
+  const user    = document.getElementById('sim-user').value.trim() || 'testuser';
+  const pass    = document.getElementById('sim-pass').value.trim() || 'Test@1234';
+  const ip      = document.getElementById('sim-ip').value.trim();
+  const ua      = document.getElementById('sim-ua').value.trim();
+  const country = document.getElementById('sim-country').value.trim();
+  const hour    = document.getElementById('sim-hour').value.trim();
+
+  let timestamp = new Date().toISOString();
+  if (hour !== '') {
+    const d = new Date();
+    d.setUTCHours(parseInt(hour), 0, 0, 0);
+    timestamp = d.toISOString();
+  }
+
+  const body = { username: user, password: pass, success, timestamp };
+  if (ip)      body.ip_address = ip;
+  if (ua)      body.user_agent = ua;
+  if (country) body.location_country = country;
+
+  document.getElementById('sim-response').textContent = 'Sending…';
+  try {
+    const r = await fetch(`${API}/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const d = await r.json();
+    document.getElementById('sim-response').textContent = JSON.stringify(d, null, 2);
+    await loadAll();
+    toast(success ? '✓ Successful login simulated' : '✗ Failed login simulated');
+  } catch(e) {
+    document.getElementById('sim-response').textContent = 'Error: ' + e.message;
+    toast('❌ ' + e.message);
+  }
+}
+
+// ─── COPY QUERY ──────────────────────────────────────────────────────────────
+function copyQuery(el) {
+  navigator.clipboard.writeText(el.textContent.trim()).then(() => toast('📋 Query copied!'));
+}
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+function fmtTime(ts) {
+  if (!ts) return '–';
+  try {
+    const d = new Date(ts);
+    return d.toLocaleTimeString('en-GB', { hour12: false }) + '\n' +
+           d.toLocaleDateString('en-GB', { month: 'short', day: 'numeric' });
+  } catch { return ts.slice(0, 19).replace('T', ' '); }
+}
+
+function fmt_type(t) {
+  return (t || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+// ─── AUTO-REFRESH ─────────────────────────────────────────────────────────────
+loadAll();
+setInterval(loadAll, 30_000);
+</script>
+</body>
+</html>
